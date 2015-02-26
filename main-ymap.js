@@ -1,18 +1,18 @@
 ( function( $, window, document, undefined ) {
     'use strict';
- 
+
     var showMap = function( element, e ) {
         e.preventDefault();
- 
+
         var mapParams = $( element ).data(),
             $modal,
             modalHeaderHeight;
         if( mapParams.hint == undefined ) {
             mapParams.hint = 'Test';
         }
- 
- 
- 
+
+
+
         $( '#mapPopup' ).modal({
             center: true,
             size: [ 1200, $( document.body ).height() - 150 ],
@@ -20,25 +20,25 @@
                 $modal = self.$element;
                 modalHeaderHeight = $modal
                     .find( '.au-modal__header' ).outerHeight();
- 
+
                 if( $modal.find( '.b-new-card' ).length > 0 ) {
                     modalHeaderHeight +=  $modal.find( '.b-new-card' ).outerHeight();
                 }
- 
+
                 $( '#yandex-map' )
                     .height( $modal.height() - modalHeaderHeight )
                     .ymap( mapParams );
             }
         });
     };
- 
+
     function YandexMap ( element, options ) {
         this.init( element, options );
     }
- 
+
     YandexMap.prototype = {
         constructor: YandexMap,
- 
+
         init: function( element, options ) {
             this.element  = element;
             this.$element = $( element );
@@ -46,58 +46,58 @@
             this.showGeoObject();
             this.initRouteControls();
         },
- 
+
         reinit: function( options ) {
             if( typeof( this.map.geoObjects.removeAll ) != "undefined" ) {
                 this.map.geoObjects.removeAll();
             }
- 
+
             if ( options.center == undefined ){
                 options.center = this.options.center;
             }
- 
+
             if ( options.center.toString() === this.options.center.toString() ) {
                 return;
             }
- 
+
             this.options = this.getOptions( options );
- 
+
             this.map.setCenter( this.options.center );
             this.createGeoObject( this.options.center );
             this.setControls( this.getControls() );
         },
- 
+
         setControls: function( controls ) {
             if( !controls ) {
                 return;
             }
- 
+
             for( var control in controls ) {
                 if( typeof( controls[control] ) == 'string' ) {
                     this.map.controls.add( controls[control] );
                 }
             }
         },
- 
+
         getOptions: function( options ) {
             options = $.extend( {}, $.fn.ymap.defaults, this.$element.data(), options );
             return options;
         },
- 
+
         getControls: function() {
             return this.$element.data( "mapControls" );
         },
- 
+
         createMap: function( center ) {
             if ( !!this.map ) return;
- 
+
             this.options.center = center;
             this.options.mapId = this.$element.attr( 'id' );
- 
+
             this.map = new AM.YandexMap( this.element, this.options );
             this.map.geoObjects.events.add( 'add', this.disableAjaxLoader.bind( this ) );
         },
- 
+
         showGeoObject: function() {
             this.enableAjaxLoader();
             if ( this.options.center ) {
@@ -108,7 +108,7 @@
                 this.geocodeAddress( this.options.hint );
             }
         },
- 
+
         initRouteControls: function() {
             if(this.options.routeControl.enabled) {
                 this._initRouteControls();
@@ -116,19 +116,30 @@
             }
             return false
         },
+        printRoute: function() {
+            var dirtyHack = document.createElement("IFRAME");
+            dirtyHack.setAttribute("src", "about://blank");
+            dirtyHack.style.width = 0+"px";
+            dirtyHack.style.height = 0+"px";
+            document.body.appendChild(dirtyHack);
+            dirtyHack.contentWindow.document.body.innerHTML = this.mapRouteControlBlock.find('.js-route-list').html();
+            dirtyHack.contentWindow.print()
+        },
         _initRouteControls: function() {
             var that = this;
             this.mapRouteControlBlock = $('.js-route-control');//TODO refatoring
             if(this.options.routeControl.isControllEnabled){
                 this.mapRouteControlBlock.find('.js-start-route').on('click', this.showMeTheWay.bind(this));
                 this.mapRouteControlBlock.find('.js-toggle-route').on('click', this.toggleRouteControlBlock.bind(this));
+                this.mapRouteControlBlock.find('.js-route-print').on('click', this.printRoute.bind(this));
                 this.map.events.add('click', this.mapClick.bind(this));
             } else {
- 
+
             }
         },
         mapClick: function(event) {
             var coords = event.get('coords');
+            var that = this;
             ymaps.geocode(coords).then(function (res) {
                 var names = [];
                 res.geoObjects.each(function (obj) {
@@ -154,14 +165,14 @@
                     that.currentRoute = router;
                     myMap.geoObjects.add(that.currentRoute);
                     that.mapRouteControlBlock.find('.js-route-list').empty();
-                    that.mapRouteControlBlock.find('.js-route-list').append(that.createTraceRoute());
+                    that.mapRouteControlBlock.find('.js-route-list').append(that.getTraceRoute());
                 }, function (error) {
                     alert("Возникла ошибка: " + error.message);
                 });
         },
 
         getTraceRoute: function() {
-            var way = that.currentRoute.getPaths().get(0);
+            var way = this.currentRoute.getPaths().get(0);
             var segments = way.getSegments();
             var moveList = 'Трогаемся,</br>';
             for (var i = 0; i < segments.length; i++) {
@@ -176,14 +187,14 @@
             var properties = { hintContent: this.options.hint },
                 options = { preset: 'islands#blackDotIcon' },
                 geoObject;
- 
+
             geoObject = new ymaps.Placemark( coords, properties, options );
             this.map.geoObjects.add( geoObject );
         },
- 
+
         geocodeAddress: function( address ) {
             var geocode = ymaps.geocode( address, { results: 1 } );
- 
+
             geocode.then( function( result ) {
                 var coords = result.geoObjects.get( 0 ).geometry.getCoordinates();
                 this.createMap( coords );
@@ -191,32 +202,32 @@
                 this.setControls( this.getControls() );
             }.bind( this ), this.showGeocodeError.bind( this ) );
         },
- 
+
         showGeocodeError: function() {
             this.disableAjaxLoader();
             this.$element.append( '<div class="h2 au-tac">Адрес не найден</div>' );
         },
- 
+
         enableAjaxLoader: function() {
             if ( this.loader ) return;
             this.loader = true;
             this.$element.ajaxLoader( this.options.loader.on );
         },
- 
+
         disableAjaxLoader: function() {
             if ( !this.loader ) return;
             this.loader = false;
             this.$element.ajaxLoader( this.options.loader.off );
         },
     };
- 
+
     $.fn.ymap = function( options ) {
         var $el, instance;
- 
+
         return this.each( function() {
             $el = $( this );
             instance = $el.data( 'plugin_ymap' );
- 
+
             if ( !instance ) {
                 $el.data( 'plugin_ymap', new YandexMap( this, options ) );
             } else {
@@ -229,12 +240,12 @@
                 } else {
                     instance.reinit( options );
                 }
- 
- 
+
+
             }
         } );
     };
- 
+
     $.fn.ymap.Constructor = YandexMap;
     $.fn.ymap.defaults = {
         forceCloseScale: true,
@@ -260,7 +271,7 @@
             }
         }
     };
- 
+
     ymaps.ready( function() {
         $( document ).on( 'click', '.js-address', function( e ){
             showMap( this, e );
@@ -271,35 +282,36 @@
            <button class="js-toggle-route">включение-выключение возможности построить маршрут</button>\
            <div class="js-control-block">\
                <input type="text" class="js-start-point" name="start" value="проспект искровский 40">\
-               <button class="js-start-route">start</button>\
+               <button class="js-start-route">START</button>\
+               <button class="js-route-print">PRINT</button>\
                <div class="js-route-list"></div>\
            </div>');
         $( document ).on( 'click', '.js-map-delivery-click', function( e ) {
             var dealerId = $( this ).data( 'dealerId' );
             var advertId = $( this ).data( 'advertId' );
             var $modal   = $( '#au-modal__header-ext' );
- 
+
             if( dealerId ) {
                 /** placing dealer info */
                 var mapTmpl  = Mark.up( mapHeaderTmpl, AM.Vars.AdvertDealers[dealerId] );
- 
+
                 $modal.html( mapTmpl );
             } else {
                 /** placing private info */
                 $( "#au-modal__header-ext" ).html( '<div class="au-modal__header">' + $( this ).data( 'hint' ) + '</div>' );
             }
- 
+
             /** placing phone info */
             $modal.find( '.js-delivery-phone' ).data( 'advertId', advertId );
             var $openedPhone = $( '#delivery-phone-' + advertId );
             if( $( '.js-delivery-phone', $openedPhone ).length < 1 ) {
                 $modal.find( '.b-contact__phone' ).html( $openedPhone.clone() );
             }
- 
+
             showMap( this, e );
         });
- 
+
         $( '.js-yandex-map' ).ymap();
     } );
- 
+
 } )( jQuery, window, document );
