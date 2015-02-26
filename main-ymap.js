@@ -122,21 +122,20 @@
             if(this.options.routeControl.isControllEnabled){
                 this.mapRouteControlBlock.find('.js-start-route').on('click', this.showMeTheWay.bind(this));
                 this.mapRouteControlBlock.find('.js-toggle-route').on('click', this.toggleRouteControlBlock.bind(this));
-                this.map.events.add('click', function (event) {
-                    var coords = event.get('coords');
-                    ymaps.geocode(coords).then(function (res) {
-                        var names = [];
-                        res.geoObjects.each(function (obj) {
-                            names.push(obj.properties.get('name'));
-                        });
-                        that.mapRouteControlBlock.find('.js-start-point').val(names[0]);
-                    });
- 
- 
-                });
+                this.map.events.add('click', this.mapClick.bind(this));
             } else {
  
             }
+        },
+        mapClick: function(event) {
+            var coords = event.get('coords');
+            ymaps.geocode(coords).then(function (res) {
+                var names = [];
+                res.geoObjects.each(function (obj) {
+                    names.push(obj.properties.get('name'));
+                });
+                that.mapRouteControlBlock.find('.js-start-point').val(names[0]);
+            });
         },
         toggleRouteControlBlock: function() {
             this.mapRouteControlBlock.find('.js-control-block input, .js-control-block button').prop('disabled', function(i, v) { return !v; });
@@ -146,7 +145,7 @@
             var path = [[start], [this.options.center]];
             var options = { mapStateAutoApply: true };
             var that = this;
-            ymaps.route( path, options)//TODO refactoring with createGeoObject method
+            ymaps.route( path, options)
                  .then(function (router) {
                     var myMap = that.map;
                     if(that.currentRoute) {
@@ -154,23 +153,25 @@
                     }
                     that.currentRoute = router;
                     myMap.geoObjects.add(that.currentRoute);
- 
-                    var way = that.currentRoute.getPaths().get(0);
-                    var segments = way.getSegments();
-                    var moveList = 'Трогаемся,</br>';
-                    for (var i = 0; i < segments.length; i++) {
-                        var street = segments[i].getStreet();
-                        moveList += ('Едем ' + segments[i].getHumanAction() + (street ? ' на ' + street : '') + ', проезжаем ' + segments[i].getLength() + ' м.,');
-                        moveList += '</br>'
-                    }
-                    moveList += 'Останавливаемся.';
                     that.mapRouteControlBlock.find('.js-route-list').empty();
-                    that.mapRouteControlBlock.find('.js-route-list').append(moveList);
+                    that.mapRouteControlBlock.find('.js-route-list').append(that.createTraceRoute());
                 }, function (error) {
                     alert("Возникла ошибка: " + error.message);
                 });
         },
- 
+
+        getTraceRoute: function() {
+            var way = that.currentRoute.getPaths().get(0);
+            var segments = way.getSegments();
+            var moveList = 'Трогаемся,</br>';
+            for (var i = 0; i < segments.length; i++) {
+                var street = segments[i].getStreet();
+                moveList += ('Едем ' + segments[i].getHumanAction() + (street ? ' на ' + street : '') + ', проезжаем ' + segments[i].getLength() + ' м.,');
+                moveList += '</br>'
+            }
+            moveList += 'Останавливаемся.';
+            return moveList;
+        },
         createGeoObject: function( coords ) {
             var properties = { hintContent: this.options.hint },
                 options = { preset: 'islands#blackDotIcon' },
@@ -241,7 +242,7 @@
         behaviors: ['default', 'scrollZoom'],
         controls: [],
         routeControl: {
-            enabled: true, //false, а вообще по умолчанию думаю false должно быть
+            enabled: true, //а вообще по умолчанию думаю false должно быть
             isToggleEnabled: true,
             isControllEnabled: true
         },
