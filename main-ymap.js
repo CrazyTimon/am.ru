@@ -38,7 +38,7 @@
 
     YandexMap.prototype = {
         constructor: YandexMap,
-
+        START_COORD_NAMESAPCE: 'start-coord',
         init: function( element, options ) {
             this.element  = element;
             this.$element = $( element );
@@ -129,17 +129,31 @@
             var that = this;
             this.mapRouteControlBlock = $('.js-route-control');//TODO refatoring
             if(this.options.routeControl.isControllEnabled){
-                this.mapRouteControlBlock.find('.js-start-route').on('click', this.showMeTheWay.bind(this));
-                this.mapRouteControlBlock.find('.js-toggle-route').on('click', this.toggleRouteControlBlock.bind(this));
-                this.mapRouteControlBlock.find('.js-route-print').on('click', this.printRoute.bind(this));
+
+                this.mapRouteControlBlock.find('.js-start-route').on('click',
+                    this.showMeTheWay.bind(this));
+
+                this.mapRouteControlBlock.find('.js-toggle-route').on('click',
+                    this.toggleRouteControlBlock.bind(this));
+
+                this.mapRouteControlBlock.find('.js-route-print').on('click',
+                    this.printRoute.bind(this));
+
+                this.mapRouteControlBlock.find('.js-start-point').on('change', this.clearRouterDataCoord.bind(this));
                 this.map.events.add('click', this.mapClick.bind(this));
             } else {
 
             }
         },
+        clearRouterDataCoord: function() {
+            this.mapRouteControlBlock.data(this.START_COORD_NAMESAPCE, '');
+        },
         mapClick: function(event) {
             var coords = event.get('coords');
             var that = this;
+
+            this.mapRouteControlBlock.data(this.START_COORD_NAMESAPCE, coords);
+
             ymaps.geocode(coords).then(function (res) {
                 var names = [];
                 res.geoObjects.each(function (obj) {
@@ -152,10 +166,11 @@
             this.mapRouteControlBlock.find('.js-control-block input, .js-control-block button').prop('disabled', function(i, v) { return !v; });
         },
         showMeTheWay: function(){
-            var start = $(".js-start-point").val();
+            var start = this.mapRouteControlBlock.data(this.START_COORD_NAMESAPCE) || this.mapRouteControlBlock.find(".js-start-point").val();
             var path = [[start], [this.options.center]];
             var options = { mapStateAutoApply: true };
             var that = this;
+
             ymaps.route( path, options)
                  .then(function (router) {
                     var myMap = that.map;
@@ -174,11 +189,14 @@
         getTraceRoute: function() {
             var way = this.currentRoute.getPaths().get(0);
             var segments = way.getSegments();
-            var moveList = 'Трогаемся,</br>';
+            var moveList = '';
             for (var i = 0; i < segments.length; i++) {
                 var street = segments[i].getStreet();
-                moveList += ('Едем ' + segments[i].getHumanAction() + (street ? ' на ' + street : '') + ', проезжаем ' + segments[i].getLength() + ' м.,');
-                moveList += '</br>'
+                moveList += ('\
+                    <div class="trace-route-block">\
+                        <div class="trace-route-block_header">' + segments[i].getHumanAction() + '</div>\
+                        <div class="trace-route-block_content">' + segments[i].getLength() + 'м, ' + (street ? street : '') + '</div>\
+                    </div>');
             }
             moveList += 'Останавливаемся.';
             return moveList;
@@ -281,7 +299,8 @@
         $('.au-modal .b-new-card').append('<div class="js-route-control">\
            <button class="js-toggle-route">включение-выключение возможности построить маршрут</button>\
            <div class="js-control-block">\
-               <input type="text" class="js-start-point" name="start" value="проспект искровский 40">\
+                <h3>Проложить маршрут</h3>\
+               <input type="text" class="js-start-point" name="start" placeholder="От" value="проспект искровский 40">\
                <button class="js-start-route">START</button>\
                <button class="js-route-print">PRINT</button>\
                <div class="js-route-list"></div>\
